@@ -1,0 +1,56 @@
+const file = app.workspace.getActiveFile();
+const content = await app.vault.read(file);
+
+const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
+const match = content.match(frontmatterRegex);
+
+if (!match) {
+  new Notice("❌ No frontmatter found.");
+  return;
+}
+
+let yaml = match[1];
+let lines = yaml.split("\n");
+
+// Extract data manually (simplified, no tp)
+const impactLine = lines.find(l => l.startsWith("impact_level:")) || "";
+const threatLine = lines.find(l => l.startsWith("threat_type:")) || "";
+const confidenceLine = lines.find(l => l.startsWith("confidence:")) || "";
+const deptLine = lines.find(l => l.startsWith("department:")) || "";
+
+const getVal = (line) => (line.split(":")[1] || "").trim().toLowerCase();
+
+const impact = getVal(impactLine);
+const threat = getVal(threatLine);
+const confidence = getVal(confidenceLine);
+const deptsRaw = deptLine.includes("[") ? deptLine.split("[")[1].split("]")[0] : "";
+const departments = deptsRaw.split(",").map(d => d.trim().toLowerCase()).filter(Boolean);
+
+const impactScoreMap = { critical: 5, high: 4, moderate: 3, low: 2, unknown: 0 };
+const threatScoreMap = {
+  ransomware: 5, data_exfiltration: 5,
+  unauthorized_access: 3, malware: 3,
+  phishing: 2, insider_threat: 2, unknown: 0
+};
+const confidenceScoreMap = { high: 3, medium: 2, low: 1, unknown: 0 };
+const sensitiveDepts = ["finance", "legal", "it"];
+
+const impactScore = impactScoreMap[impact] ?? 0;
+const threatScore = threatScoreMap[threat] ?? 0;
+const confidenceScore = confidenceScoreMap[confidence] ?? 0;
+const deptScore = departments.reduce((acc, d) => acc + (sensitiveDepts.includes(d) ? 2 : 1), 0);
+const total = impactScore + deptScore + threatScore + confidenceScore;
+
+// Replace or add score line
+const scoreLineIndex = lines.findIndex((l) => l.startsWith("score:"));
+if (scoreLineIndex !== -1) {
+  lines[scoreLineIndex] = `score: ${total}`;
+} else {
+  lines.push(`score: ${total}`);
+}
+
+const newFrontmatter = `---\n${lines.join("\n")}\n---`;
+const newContent = content.replace(frontmatterRegex, newFrontmatter);
+
+await app.vault.modify(file, newContent);
+new Notice(`✅ Score updated to ${total}`);
