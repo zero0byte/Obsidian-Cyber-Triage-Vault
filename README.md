@@ -76,7 +76,7 @@ To ensure charts render:
 
 - Add severity/risk level mapping
 - Track escalation or resolution status
-- Publish sanitized notes via [Obsidian Publish](https://obsidian.md/publish)
+- Publish sanitised notes via [Obsidian Publish](https://obsidian.md/publish)
 
 ---
 
